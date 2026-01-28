@@ -1,30 +1,154 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Shared Button Log</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simple Chat</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --bg: #f0f2f5;
+            --text: #1c1e21;
+        }
+
+        body {
+            font-family: -apple-system, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* Full screen height */
+        }
+
+        /* Chat header */
+        .header {
+            padding: 15px;
+            background: white;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        /* Chat messages area */
+        #chat-window {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .msg {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            width: fit-content;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            word-wrap: break-word;
+            font-size: 0.95rem;
+            animation: pop 0.2s ease-out;
+        }
+
+        @keyframes pop {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* Bottom input bar */
+        .input-area {
+            background: white;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid #ddd;
+            padding-bottom: env(safe-area-inset-bottom); /* Fix for iPhones */
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:active { opacity: 0.8; }
+    </style>
 </head>
 <body>
-  <button onclick="sendLog()">Press me</button>
-  <ul id="logs"></ul>
 
-  <script>
-    const API = "https://shiny-dawn-77b6.imcrabfr.workers.dev";
+    <div class="header">Global Chat</div>
 
-    async function sendLog() {
-      await fetch(API + "/log", { method: "POST" });
-      loadLogs();
-    }
+    <div id="chat-window"></div>
 
-    async function loadLogs() {
-      const res = await fetch(API + "/logs");
-      const logs = await res.json();
-      document.getElementById("logs").innerHTML =
-        logs.map(l => `<li>${l}</li>`).join("");
-    }
+    <div class="input-area">
+        <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+        <button onclick="sendMessage()">Send</button>
+    </div>
 
-    loadLogs();
-    setInterval(loadLogs, 2000);
-  </script>
+    <script>
+        const API = "https://shiny-dawn-77b6.imcrabfr.workers.dev";
+        const input = document.getElementById('messageInput');
+        const chatWindow = document.getElementById('chat-window');
+
+        // Allow pressing "Enter" to send
+        input.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") sendMessage();
+        });
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = ""; // Clear input immediately for speed
+            
+            try {
+                // We send the message as a string in the body
+                await fetch(API + "/log", { 
+                    method: "POST",
+                    body: text 
+                });
+                loadMessages();
+            } catch (err) {
+                console.error("Chat error:", err);
+            }
+        }
+
+        async function loadMessages() {
+            try {
+                const res = await fetch(API + "/logs");
+                const messages = await res.json();
+                
+                // Only update if there are new messages to prevent flickering
+                const newContent = messages.map(m => `<div class="msg">${m}</div>`).join("");
+                
+                if (chatWindow.innerHTML !== newContent) {
+                    chatWindow.innerHTML = newContent;
+                    // Auto-scroll to bottom
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                }
+            } catch (err) {
+                console.error("Load error:", err);
+            }
+        }
+
+        // Refresh chat every 2 seconds
+        setInterval(loadMessages, 2000);
+        loadMessages();
+    </script>
 </body>
 </html>
