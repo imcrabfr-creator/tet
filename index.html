@@ -1,154 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Simple Chat</title>
-    <style>
-        :root {
-            --primary: #007bff;
-            --bg: #f0f2f5;
-            --text: #1c1e21;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini Browser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #121212;
+      color: #fff;
+    }
 
-        body {
-            font-family: -apple-system, sans-serif;
-            background-color: var(--bg);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh; /* Full screen height */
-        }
+    .browser-bar {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      background: #1f1f1f;
+      gap: 0.5rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
 
-        /* Chat header */
-        .header {
-            padding: 15px;
-            background: white;
-            text-align: center;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            z-index: 10;
-        }
+    .browser-bar button {
+      background: #2c2c2c;
+      border: none;
+      padding: 0.5rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
 
-        /* Chat messages area */
-        #chat-window {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+    .browser-bar button:hover {
+      background: #3a3a3a;
+    }
 
-        .msg {
-            background: white;
-            padding: 10px 15px;
-            border-radius: 18px;
-            max-width: 80%;
-            width: fit-content;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-            word-wrap: break-word;
-            font-size: 0.95rem;
-            animation: pop 0.2s ease-out;
-        }
+    .url-input {
+      flex: 1;
+      padding: 0.5rem 0.8rem;
+      border-radius: 8px;
+      border: none;
+      background: #2c2c2c;
+      color: #fff;
+      font-size: 14px;
+    }
 
-        @keyframes pop {
-            from { transform: scale(0.95); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        /* Bottom input bar */
-        .input-area {
-            background: white;
-            padding: 10px;
-            display: flex;
-            gap: 10px;
-            border-top: 1px solid #ddd;
-            padding-bottom: env(safe-area-inset-bottom); /* Fix for iPhones */
-        }
-
-        input {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 25px;
-            outline: none;
-            font-size: 1rem;
-        }
-
-        button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 0 20px;
-            border-radius: 25px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        button:active { opacity: 0.8; }
-    </style>
+    #browser {
+      flex: 1;
+      overflow: auto;
+      background: white;
+      color: black;
+      padding: 10px;
+    }
+  </style>
 </head>
 <body>
 
-    <div class="header">Global Chat</div>
+  <!-- Browser Bar -->
+  <div class="browser-bar">
+    <button onclick="goBack()" title="Back">◀</button>
+    <button onclick="goForward()" title="Forward">▶</button>
+    <button onclick="reloadFrame()" title="Reload">⟳</button>
+    <button onclick="goHome()" title="Home">🏠</button>
 
-    <div id="chat-window"></div>
+    <input id="urlInput" class="url-input" placeholder="Enter URL" />
+    <button onclick="go()" class="px-4 py-1 bg-blue-600 rounded hover:bg-blue-700">Go</button>
+  </div>
 
-    <div class="input-area">
-        <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
-        <button onclick="sendMessage()">Send</button>
-    </div>
+  <!-- Browser View -->
+  <div id="browser"></div>
 
-    <script>
-        const API = "https://shiny-dawn-77b6.imcrabfr.workers.dev";
-        const input = document.getElementById('messageInput');
-        const chatWindow = document.getElementById('chat-window');
+  <script>
+    const workerProxy = "https://website-proxy-background.imcrabfr.workers.dev/proxy/";
+    let currentUrl = "";
+    const historyStack = [];
+    let historyIndex = -1;
 
-        // Allow pressing "Enter" to send
-        input.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") sendMessage();
+    async function go(urlInput) {
+      let url = urlInput || document.getElementById("urlInput").value.trim();
+      if (!url) return;
+      if (!url.startsWith("http")) url = "https://" + url;
+
+      currentUrl = url;
+
+      // Add to history
+      if (historyIndex === -1 || historyStack[historyIndex] !== url) {
+        historyStack.splice(historyIndex + 1);
+        historyStack.push(url);
+        historyIndex++;
+      }
+
+      await loadUrl(url);
+    }
+
+    async function loadUrl(url) {
+      const browser = document.getElementById("browser");
+      browser.innerHTML = "<p>Loading...</p>";
+
+      try {
+        const res = await fetch(workerProxy + encodeURIComponent(url));
+        const html = await res.text();
+
+        browser.innerHTML = html;
+
+        // Execute scripts dynamically
+        browser.querySelectorAll("script").forEach(oldScript => {
+          const newScript = document.createElement("script");
+          if (oldScript.src) newScript.src = oldScript.src;
+          else newScript.textContent = oldScript.textContent;
+          document.body.appendChild(newScript);
+          oldScript.remove();
         });
 
-        async function sendMessage() {
-            const text = input.value.trim();
-            if (!text) return;
+        // Links stay in proxy
+        browser.querySelectorAll("a").forEach(a => {
+          a.addEventListener("click", e => {
+            e.preventDefault();
+            document.getElementById("urlInput").value = a.href;
+            go(a.href);
+          });
+        });
 
-            input.value = ""; // Clear input immediately for speed
-            
-            try {
-                // We send the message as a string in the body
-                await fetch(API + "/log", { 
-                    method: "POST",
-                    body: text 
-                });
-                loadMessages();
-            } catch (err) {
-                console.error("Chat error:", err);
-            }
-        }
+        // Forms stay in proxy
+        browser.querySelectorAll("form").forEach(f => {
+          f.addEventListener("submit", e => {
+            e.preventDefault();
+            const action = f.action || url;
+            const method = (f.method || "GET").toUpperCase();
+            const formData = new FormData(f);
+            const params = new URLSearchParams(formData).toString();
+            let targetUrl = action;
+            if (method === "GET" && params) targetUrl += "?" + params;
+            document.getElementById("urlInput").value = targetUrl;
+            go(targetUrl);
+          });
+        });
 
-        async function loadMessages() {
-            try {
-                const res = await fetch(API + "/logs");
-                const messages = await res.json();
-                
-                // Only update if there are new messages to prevent flickering
-                const newContent = messages.map(m => `<div class="msg">${m}</div>`).join("");
-                
-                if (chatWindow.innerHTML !== newContent) {
-                    chatWindow.innerHTML = newContent;
-                    // Auto-scroll to bottom
-                    chatWindow.scrollTop = chatWindow.scrollHeight;
-                }
-            } catch (err) {
-                console.error("Load error:", err);
-            }
-        }
+      } catch (err) {
+        browser.innerHTML = "<p style='color:red'>Error loading page: " + err.message + "</p>";
+      }
+    }
 
-        // Refresh chat every 2 seconds
-        setInterval(loadMessages, 2000);
-        loadMessages();
-    </script>
+    function reloadFrame() {
+      if (currentUrl) go(currentUrl);
+    }
+
+    function goBack() {
+      if (historyIndex > 0) {
+        historyIndex--;
+        const url = historyStack[historyIndex];
+        document.getElementById("urlInput").value = url;
+        go(url);
+      }
+    }
+
+    function goForward() {
+      if (historyIndex < historyStack.length - 1) {
+        historyIndex++;
+        const url = historyStack[historyIndex];
+        document.getElementById("urlInput").value = url;
+        go(url);
+      }
+    }
+
+    function goHome() {
+      const homeUrl = "https://example.com";
+      document.getElementById("urlInput").value = homeUrl;
+      go(homeUrl);
+    }
+
+    // Preload homepage
+    document.getElementById("urlInput").value = "https://example.com";
+    go();
+  </script>
+
 </body>
 </html>
