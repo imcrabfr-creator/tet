@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Shared Button Log</title>
+</head>
+<body>
+  <button onclick="sendLog()">Press me</button>
+  <ul id="logs"></ul>
+
+  <script>
+    const API = "https://shiny-dawn-77b6.imcrabfr.workers.dev";
+
+    async function sendLog() {
+      await fetch(API + "/log", { method: "POST" });
+      loadLogs();
+    }
+
+    async function loadLogs() {
+      const res = await fetch(API + "/logs");
+      const logs = await res.json();
+      document.getElementById("logs").innerHTML =
+        logs.map(l => `<li>${l}</li>`).join("");
+    }
+
+    loadLogs();
+    setInterval(loadLogs, 2000);
+  </script>
+</body>
+</html>
